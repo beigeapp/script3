@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html>
+<head> 
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="
+    script-src 'self' 'unsafe-inline' https://raw.githubusercontent.com 'wasm-unsafe-eval';
+    object-src 'none';
+    connect-src 'self' https://api.qrserver.com;
+    worker-src 'self' blob:;">
+    <title>QR Code Generator</title> 
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            font-family: 'Poppins', sans-serif; 
+            box-sizing: border-box;
+        }
+        body {
+            background: #F9F4E5;
+        }
+        .container {
+            width: 90%;
+            max-width: 400px;
+            padding: 25px 35px;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%,-50%);
+            background: #fff;
+            border-radius: 10px;
+        }
+        .container p {
+            font-weight: 600;
+            font-size: 15px;
+            margin-bottom: 3px;
+        }
+        .container input {
+            width: 100%;
+            height: 40px;
+            border: 1px solid #000000;
+            outline: 0;
+            padding: 10px;
+            margin: 10px 0 20px;
+            border-radius: 5px;
+        }
+        .container button {
+            width: 100%;
+            height: 50px;
+            background: #58514E;
+            color: #fff;
+            border: 0;
+            outline: 0;
+            border-radius: 5px;
+            box-shadow: 0 10px 10px rgba(0, 0, 0, 0.1);
+            cursor: pointer;
+            margin: 20px 0;
+            font-weight: 500;
+        }
+        #imgBox {
+            width: 200px;
+            border-radius: 5px;
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 1s;
+        }
+        #imgBox img {
+            width: 100%;
+            padding: 10px;
+        }
+        #imgBox.show-img {
+            max-height: 300px;
+            margin: 10px auto;
+            border: 1px solid #d1d1d1;
+        }
+        .error {
+            animation: shake 0.1s linear 10;
+        }
+        @keyframes shake {
+            0% { transform: translateX(0); }
+            25% { transform: translateX(-2px); }
+            50% { transform: translateX(0); }
+            75% { transform: translateX(2px); }
+            100% { transform: translateX(0); }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <p>Enter new 6-digit Passcode</p>
+    <p style="font-size: x-small; color: rgb(181, 35, 35); font-weight: normal;">
+        QR Generator does not store passcode. Please double-check before generating QR code.
+    </p>
+    <input type="number" placeholder="Passcode" id="passwordInput" min="0" max="999999"> 
+    <p>Enter existing Year, Month, Day, Hour, and Minute</p>
+    <input type="number" placeholder="Year" id="yearInput" min="2022" max="2099">
+    <input type="number" placeholder="Month" id="monthInput" min="1" max="12">
+    <input type="number" placeholder="Day" id="dayInput" min="1" max="31">
+    <input type="number" placeholder="Hour" id="hourInput" min="0" max="23">
+    <input type="number" placeholder="Minute" id="minuteInput" min="0" max="59">
+    <div id="imgBox">
+        <img src="" id="qrImage">
+    </div>
+    <div>
+        <button id="generateButton">Generate QR Code for Reset</button>
+    </div>
+</div>
+
+<script type="module">
+    async function loadScript() {
+        let wasmPath = './qr_generator_bg.wasm';
+        let jsPath = './qr_generator.js';
+
+        // If running on Wix, use GitHub paths
+        if (location.hostname.endsWith('wixsite.com')) {
+            wasmPath = 'https://raw.githubusercontent.com/beigeapp/script3/main/pkg/qr_generator_bg.wasm';
+            jsPath = 'https://raw.githubusercontent.com/beigeapp/script3/main/pkg/qr_generator.js';
+        }
+
+        const { default: init, generate_qr_data } = await import(jsPath);
+
+        async function generateQR() {
+            console.log('Starting generateQR');
+            try {
+                await init(wasmPath);
+                console.log('WebAssembly initialized');
+                const password = document.getElementById("passwordInput").value;
+                const year = document.getElementById("yearInput").value;
+                const month = document.getElementById("monthInput").value;
+                const day = document.getElementById("dayInput").value;
+                const hour = document.getElementById("hourInput").value;
+                const minute = document.getElementById("minuteInput").value;
+                console.log('Inputs:', { password, year, month, day, hour, minute });
+                const qrData = await generate_qr_data(password, year, month, day, hour, minute);
+                console.log('QR Data:', qrData);
+                const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${qrData}`;
+                console.log('QR Code URL:', qrCodeUrl);
+                const qrImage = document.getElementById("qrImage");
+                qrImage.src = qrCodeUrl;
+                document.getElementById("imgBox").classList.add("show-img");
+                //const width = Math.min(window.innerWidth * 0.9, 400);
+                //const height = width;
+                //const qrWindow = window.open('', '_blank', `width=${width}, height=${height}`);
+                //if (qrWindow) {
+                //    qrWindow.document.write(`<p><style> p { font-family: Arial; } </style>QR code for BeigeLock</p><br>`);
+                //    qrWindow.document.write(`<img src="${qrCodeUrl}" alt="QR Code">`);
+                //    qrWindow.focus();
+                //} else {
+                //    alert("Please allow pop-ups for this website to view the generated QR code.");
+                //}
+            } catch (err) {
+                console.error('Error in generateQR:', err);
+                alert(err);
+            }
+        }
+
+        // Attach event listener to the button
+        document.getElementById("generateButton").addEventListener("click", generateQR);
+    }
+
+    // Dynamically load script
+    loadScript();
+</script>
+</body>
+</html>
+
